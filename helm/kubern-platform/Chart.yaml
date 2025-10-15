@@ -1,0 +1,17 @@
+apiVersion: v2
+name: kubern-platform
+description: A Kubernetes Learning Platform for African Students
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - kubernetes
+  - learning
+  - education
+  - africa
+home: https://kubern-platform.africa
+sources:
+  - https://github.com/kubern-platform/kubern-platform
+maintainers:
+  - name: Kubern Platform Team
+    email: team@kubern-platform.africa

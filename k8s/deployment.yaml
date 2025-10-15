@@ -1,0 +1,136 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubern-platform
+  labels:
+    app: kubern-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kubern-platform
+  template:
+    metadata:
+      labels:
+        app: kubern-platform
+    spec:
+      containers:
+      - name: kubern-platform
+        image: kubern-platform:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: kubern-platform-secrets
+              key: database-url
+        - name: NEXTAUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: kubern-platform-secrets
+              key: nextauth-secret
+        - name: NEXTAUTH_URL
+          valueFrom:
+            configMapKeyRef:
+              name: kubern-platform-config
+              key: nextauth-url
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubern-platform-service
+spec:
+  selector:
+    app: kubern-platform
+  ports:
+  - port: 80
+    targetPort: 3000
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kubern-platform-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - kubern-platform.example.com
+    secretName: kubern-platform-tls
+  rules:
+  - host: kubern-platform.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kubern-platform-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubern-platform-config
+data:
+  nextauth-url: "https://kubern-platform.example.com"
+  app-name: "Kubern Platform"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kubern-platform-secrets
+type: Opaque
+data:
+  database-url: "cG9zdGdyZXNxbDovLXVzZXJuYW1lOnBhc3N3b3JkQGxvY2FsaG9zdDo1NDMyL2t1YmVybl9wbGF0Zm9ybT9zY2hlbWE9cHVibGlj" # base64 encoded
+  nextauth-secret: "eW91ci1zZWNyZXQta2V5LWhlcmU=" # base64 encoded
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: kubern-platform-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: kubern-platform
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

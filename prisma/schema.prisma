@@ -1,0 +1,268 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String
+  role      Role     @default(STUDENT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  progress   Progress[]
+  forumPosts ForumPost[]
+  forumReplies ForumReply[]
+  sessions   Session[]
+  accounts   Account[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Tutorial {
+  id          String     @id @default(cuid())
+  title       String
+  slug        String     @unique
+  content     String     @db.Text
+  difficulty  Difficulty @default(BEGINNER)
+  order       Int
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  progress Progress[]
+  quizzes  Quiz[]
+  lessons  Lesson[]
+
+  @@map("tutorials")
+}
+
+model Lesson {
+  id          String     @id @default(cuid())
+  tutorialId  String
+  title       String
+  description String?
+  content     String     @db.Text
+  type        LessonType @default(TEXT)
+  duration    Int        // Duration in minutes
+  order       Int
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  tutorial Tutorial @relation(fields: [tutorialId], references: [id], onDelete: Cascade)
+
+  @@map("lessons")
+}
+
+model Progress {
+  id          String     @id @default(cuid())
+  userId      String
+  tutorialId  String
+  completed   Boolean    @default(false)
+  score       Int?
+  completedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tutorial Tutorial @relation(fields: [tutorialId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tutorialId])
+  @@map("progress")
+}
+
+model ForumPost {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  content   String   @db.Text
+  category  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replies  ForumReply[]
+
+  @@map("forum_posts")
+}
+
+model ForumReply {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  post ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("forum_replies")
+}
+
+model Quiz {
+  id         String @id @default(cuid())
+  tutorialId String
+  questions  Json   // Store quiz questions as JSON
+
+  // Relations
+  tutorial Tutorial @relation(fields: [tutorialId], references: [id], onDelete: Cascade)
+
+  @@map("quizzes")
+}
+
+enum Role {
+  STUDENT
+  MENTOR
+  ADMIN
+}
+
+enum Difficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum Experience {
+  ENTRY
+  MID
+  SENIOR
+  LEAD
+}
+
+enum LessonType {
+  TEXT
+  CODE
+  TERMINAL
+  QUIZ
+}
+
+model Job {
+  id          String     @id @default(cuid())
+  title       String
+  company     String
+  location    String
+  type        JobType    @default(FULL_TIME)
+  salary      String?
+  description String     @db.Text
+  requirements Json      // Array of strings
+  benefits    Json       // Array of strings
+  experience  Experience @default(ENTRY)
+  category    JobCategory @default(KUBERNETES)
+  africanCompany Boolean @default(false)
+  remote      Boolean    @default(false)
+  featured    Boolean    @default(false)
+  skills      Json       // Array of strings
+  responsibilities Json  // Array of strings
+  qualifications Json    // Array of strings
+  applicationProcess Json // Array of strings
+  companyInfo Json?      // Company information object
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  applications JobApplication[]
+
+  @@map("jobs")
+}
+
+model JobApplication {
+  id          String     @id @default(cuid())
+  jobId       String
+  userId      String?
+  firstName   String
+  lastName    String
+  email       String
+  phone       String?
+  location    String
+  experience  String
+  coverLetter String     @db.Text
+  resumeUrl   String?
+  portfolioUrl String?
+  status      ApplicationStatus @default(SUBMITTED)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("job_applications")
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  REMOTE
+}
+
+enum JobCategory {
+  KUBERNETES
+  DEVOPS
+  CLOUD
+  BACKEND
+  FRONTEND
+  FULLSTACK
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  REVIEWED
+  INTERVIEW_SCHEDULED
+  INTERVIEWED
+  REJECTED
+  ACCEPTED
+}
